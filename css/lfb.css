@@ -1,0 +1,17 @@
+body, svg {
+    font-family: 'Merriweather', serif;
+
+}
+/* Container div takes up the full width and height of its parent */
+#container {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 16px);
+    overflow: hidden;
+}
+
+/* The first child div takes up 100% width - 180px and 100% height */
+#chartDiv {
+    width: 100%;
+    height: 100vh;
+}
