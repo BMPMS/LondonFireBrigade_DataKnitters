@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="css/lfb.css"/>
 <link href='https://fonts.googleapis.com/css?family=Merriweather' rel='stylesheet'>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flubber@0.4.2/build/flubber.min.js"></script>
 <script src="https://d3js.org/d3.v6.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-interpolate-path@1.1.0/build/d3-interpolate-path.min.js"></script>
 <script src="https://rawcdn.githack.com/Kcnarf/d3-weighted-voronoi/v1.1.3/build/d3-weighted-voronoi.js"></script>
@@ -47,6 +48,7 @@
     }
 
     const getChartData = async () => {
+
         const areaData = await d3.csv("data/animalsByYear.csv");
         // unique set of names in voronoi data
         const voronoiData = await d3.csv("data/animalsTotalIncidentsChickenBird.csv");
