@@ -176,6 +176,9 @@ const stackedAreaChart = ()  => {
                 exit.selectAll(".stackLabelTotal")
                     .attr("opacity",0);
 
+                    exit.selectAll(".yearDotsGroup")
+                        .attr("opacity",0);
+
                 exit
                     .attr("opacity",1)
                     .interrupt()
