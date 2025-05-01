@@ -105,6 +105,7 @@ const stackedAreaChart = ()  => {
 
         xAxis
             .selectAll("text")
+            .attr("visibility","visible")
             .attr("pointer-events", "none")
             .attr("font-weight", 300)
             .attr("fill", "grey")
