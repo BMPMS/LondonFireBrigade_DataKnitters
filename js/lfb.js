@@ -25,6 +25,10 @@ const getStackData = (chartData, colors,filterResults) => {
                 } else {
                     newEntry["Other"] += value;
                 }
+                if(!newEntry["Descriptions"]){
+                    newEntry["Descriptions"] = [];
+                }
+                newEntry["Descriptions"] = newEntry["Descriptions"].concat(d.Descriptions)
             })
             acc.push(newEntry);
             return acc;
@@ -40,21 +44,38 @@ const stackedAreaChart = ()  => {
     let allRescues = [];
     let chartWidth = 0;
     let props = {};
-    let voronoiChart = undefined;
     let svg = undefined;
     let filterResults = "";
     let previousFilter = "";
-    let otherPath = "";
+    let dataPathsALL = {};
 
     const getKey = (currentKey) => Object.keys(props.colors).includes(currentKey) ? currentKey : "Other";
 
+    const resetNewsScroller = (latestNews) => {
+        const speedPixelsPerSecond = 200;
+        const ticker = d3.select(".news-ticker").html(latestNews);
+
+        ticker.style("animation", "none");
+        ticker.node().offsetHeight;
+        const tickerWidth = ticker.node().offsetWidth;
+        const screenWidth = window.innerWidth;
+        const duration = (tickerWidth + screenWidth) / speedPixelsPerSecond;
+        ticker.style("animation", `scrollNews ${duration}s linear infinite`);
+    }
     const drawAreaChart = (initial) => {
+
         const {margin, colors} = props;
+        const transformX = margin.left + chartWidth + margin.middle;
         const xExtent = d3.extent(chartData, (d) => d.Year);
         const xScale = d3.scaleLinear().domain(xExtent).range([0, chartWidth]);
         const filteredChartData = filterResults === "" ? chartData : allRescues[filterResults];
 
         const stackData = getStackData(filteredChartData,colors,filterResults);
+
+        const allNews = stackData.length > 1 ? "hover over hexagon slices to filter | click anywhere outside charts to reset" :
+            stackData[0].flatMap(d => d.data.Descriptions).join(" | ");
+
+        resetNewsScroller(allNews);
 
         const yMax = d3.max(stackData, (d) => d3.max(d, (m) => m[1]));
         const yScale = d3.scaleLinear().domain([0,yMax]).range([chartHeight,0]);
@@ -65,11 +86,18 @@ const stackedAreaChart = ()  => {
         if(xAxis.node() === null){
             xAxis = svg.append("g").attr("class","xAxis");
             yAxis = svg.append("g").attr("class","yAxis");
+            svg.append("clipPath").attr("id", "yAxisClipPath")
+                .append("rect").attr("id","yAxisClipPathRect");
         }
+
+        svg.select("#yAxisClipPathRect")
+            .attr("width", margin.left)
+            .attr("height", chartHeight + 10)
+            .attr("transform", `translate(${-margin.left},-10)`);
 
         xAxis
             .call(d3.axisBottom(xScale).ticks(5).tickSizeOuter(0))
-            .attr("transform", `translate(${margin.left},${margin.top + chartHeight})`);
+            .attr("transform", `translate(${transformX},${margin.top + chartHeight})`);
 
         xAxis.selectAll("path").attr("display", "none");
 
@@ -85,7 +113,8 @@ const stackedAreaChart = ()  => {
             .text((d) =>  d);
 
         yAxis
-            .attr("transform", `translate(${margin.left},${margin.top})`)
+            .attr("clip-path", "url(#yAxisClipPath)")
+            .attr("transform", `translate(${transformX},${margin.top})`)
             .transition()
             .duration(500)
             .call(d3.axisLeft(yScale).ticks(5).tickSizeOuter(0));
@@ -110,7 +139,7 @@ const stackedAreaChart = ()  => {
             .attr("x", -5)
             .transition()
             .duration(500)
-            .text((d) =>  d > 0 ? d : "");
+            .text((d) =>  d > 0 && Number.isInteger(d) ? d : "");
 
         const areaStart = d3.area()
             .curve(d3.curveMonotoneX )
@@ -126,7 +155,7 @@ const stackedAreaChart = ()  => {
 
 
         if(initial){
-           otherPath = area(stackData.find((f) => f.key === "Other"));
+            stackData.forEach((d) => dataPathsALL[getKey(d.key)] = area(d));
         }
 
         const stackGroup = svg
@@ -135,78 +164,237 @@ const stackedAreaChart = ()  => {
             .join((group) => {
                 const enter = group.append("g").attr("class", "stackGroup");
                 enter.append("path").attr("class", "stackArea");
+                enter.append("image").attr("class","stackImage");
                 enter.append("text").attr("class","stackLabel");
+                enter.append("text").attr("class","stackLabelTotal");
+                enter.append("g").attr("class","yearGroup");
                 return enter;
             },(update) => update.attr("opacity",1),
-                (exit) => exit
+                (exit) => {
+
+                exit.selectAll(".stackLabelTotal")
+                    .attr("opacity",0);
+
+                exit
                     .attr("opacity",1)
                     .interrupt()
                     .transition()
-                    .duration(1500)
-                    .attr("opacity",0));
+                    .duration(previousFilter === "" ? 500 : 0)
+                    .attr("opacity",(d) => getKey(d.key) === previousFilter ? 1 : 0)
+                    .transition()
+                    .duration(500)
+                    .attr("opacity",0);
 
-        stackGroup.attr("transform", `translate(${margin.left},${margin.top})`)
-
-        const getAnimationOpacity = (d) =>{
-            const key = getKey(d.key);
-            if(filterResults === "" && key !== previousFilter && !initial) return 0;
-            return 1;
-            ;        }
-        const getAnimationDelay = (d) => {
-            if(d.key === previousFilter || initial ) return 0;
-            return 1500;
-        }
-
-
-        stackGroup.select(".stackLabel")
-            .attr("pointer-events", "none")
-            .attr("font-weight", 600)
-            .attr("fill", "grey")
-            .attr("dominant-baseline","middle")
-            .attr("transform", (d) => `translate(${chartWidth + 5},${filterResults === ""?  yScale((d[0][1])) + 10 : 0})`)
-            .attr("font-size", 16)
-            .text((d) => d.key)
-            .transition()
-            .delay(getAnimationDelay)
-            .duration(500)
-            .attr("opacity",1)
-
-
-        stackGroup.select(".stackArea")
-            .attr("fill",(d) => colors[d.key] || colors["Other"])
-            .on("mouseover", (event, d) => {
-                voronoiChartSource.filterResults(d.key);
-            })
-            .on("mouseout", (event, d) => {
-                voronoiChartSource.filterResults("")
-            })
-            .attr("opacity", getAnimationOpacity)
-           .transition()
-            .delay(getAnimationDelay)
-            .duration(500)
-            .attr("opacity", 1)
-            .attrTween("d", function(d,i,objects) {
-                if(!initial && d.key !== previousFilter && filterResults === ""){
-                    return  () => area(d);
-                } else {
-                    const current = Object.keys(colors).includes(d.key) ? d3.select(objects[i]).attr("d") : otherPath;
-                    const previous = initial ? areaStart(d) : current;
-                    const next = area(d);
-                    if(initial){
-                        return d3.interpolate(
-                            previous,
-                            next,
-                            {maxSegmentLength: 10}
-                        );
-                    } else {
+                // can share code later
+                exit.selectAll(".stackArea")
+                    .transition()
+                    .duration(500)
+                    .attrTween("d", function(d,i,objects) {
+                        // Step 1 - animate from singleArea (if relevant) to stackedArea
+                        if(getKey(d.key) !== previousFilter) {
+                            return  () => d3.select(objects[i]).attr("d")
+                        }
+                        // always animating from stackedArea to singleArea
+                        // EXCEPT when filterResults === "" which is areaStart => area
+                        const previous = d3.select(objects[i]).attr("d");
+                        const next = dataPathsALL[getKey(d.key)];
+                        // flubber needed here as otherwise the area flips
                         return flubber.interpolate(
                             previous,
                             next,
                             {maxSegmentLength: 10}
                         );
-                    }
+
+                    })
+                    return exit})
+            ;
+
+        stackGroup.attr("transform", `translate(${transformX},${margin.top})`)
+
+        const getAnimationOpacity = (d) =>{
+            const key = getKey(d.key);
+            if(filterResults === "" && key !== previousFilter  && !initial) return 0;
+            return 1;
+        }
+        const getAnimationDelay = (d) => {
+            if(initial) return 0;
+            if(getKey(d.key) === previousFilter && previousFilter !== "Other") return 1200;
+            return 500;
+        }
+
+        const imageKeys = ["Cat","Dog","Bird"]
+
+        stackGroup.select(".stackImage")
+            .filter((d) => imageKeys.includes(d.key))
+            .attr("opacity", getAnimationOpacity)
+            .attr("width", 25)
+            .attr("height", 25)
+            .attr("xlink:href", (d) => `images/${d.key}.png`)
+            .attr("transform", (d) => `translate(${chartWidth + 5},${filterResults === ""?  yScale((d[0][1])) - 8  : -18})`)
+            .interrupt()
+            .transition()
+            .delay(getAnimationDelay)
+            .duration(500)
+            .attr("opacity",1);
+
+        stackGroup
+            .select(".yearGroup")
+            .attr("opacity", 0)
+            .interrupt()
+            .transition()
+            .delay((d) => getAnimationDelay(d) + 500)
+            .duration(500)
+            .attr("opacity",1);
+
+        stackGroup.select(".stackLabel")
+            .attr("opacity", getAnimationOpacity)
+            .attr("pointer-events", "none")
+            .attr("font-weight", 600)
+            .attr("fill", "grey")
+            .attr("dominant-baseline","middle")
+            .attr("transform", (d) => `translate(${chartWidth + 5 + (imageKeys.includes(d.key) ? 30 : 0)},${filterResults === ""?  yScale((d[0][1])) + 10 : 0})`)
+            .attr("font-size", 16)
+            .text((d) =>  d.key)
+            .interrupt()
+            .transition()
+            .delay(getAnimationDelay)
+            .duration(500)
+            .attr("opacity",1);
+
+        stackGroup.select(".stackLabelTotal")
+            .attr("opacity", getAnimationOpacity)
+            .attr("pointer-events", "none")
+            .attr("font-weight", 600)
+            .attr("fill", "grey")
+            .attr("dominant-baseline","middle")
+            .attr("transform", (d) => `translate(${chartWidth + 5},${20})`)
+            .attr("font-size", 16)
+            .interrupt()
+            .transition()
+            .delay(getAnimationDelay)
+            .duration(500)
+            .attr("opacity",1)
+            .text((d) =>   d.key === filterResults ? d3.sum(d, (m) => m.data[d.key]) : "")
+
+
+        stackGroup.select(".stackArea")
+            .attr("pointer-events", "none")
+            .attr("fill",(d) => colors[d.key] || colors["Other"])
+            .interrupt()
+           .transition()
+           .duration((d) => getKey(d.key) === previousFilter ? 500 : 0)
+            .attrTween("d", function(d,i,objects) {
+                // this is other only
+                // Step 1 - animate from singleArea (if relevant) to stackedArea
+                if(getKey(d.key) !== previousFilter) {
+                    return  () => d3.select(objects[i]).attr("d") || ""
+                }
+
+                // always animating from stackedArea to singleArea
+                // EXCEPT when filterResults === "" which is areaStart => area
+                const previous = d3.select(objects[i]).attr("d");
+                const next = dataPathsALL[getKey(d.key)];
+                // flubber needed here as otherwise the area flips
+                return flubber.interpolate(
+                    previous,
+                    next,
+                    {maxSegmentLength: 10}
+                );
+
+            })
+            .transition()
+            .duration(!filterResults === "" && previousFilter !== "" && !(filterResults === "Other" && previousFilter === "Other") ? 500 : 0)
+            .attr("opacity", getAnimationOpacity)
+            .transition()
+            .delay(getAnimationDelay)
+            .duration(filterResults === "" && !initial ? 0 : 500)
+            .attr("opacity", 1)
+            .attrTween("d", function(d) {
+                // Step 3 - final animation
+                // always animating from stackedArea to singleArea
+                // EXCEPT when filterResults === "" which is areaStart => area
+                const previous = filterResults === "" ? areaStart(d) : dataPathsALL[getKey(d.key)];
+                const next = area(d);
+                if(filterResults === ""){
+                    // d3 interpolate works better with growing areas
+                    return d3.interpolate(
+                        previous,
+                        next,
+                        {maxSegmentLength: 10}
+                    );
+                } else {
+                    // flubber needed here as otherwise the area flips
+                    return flubber.interpolate(
+                        previous,
+                        next,
+                        {maxSegmentLength: 10}
+                    );
                 }
             })
+
+        const yearGroup = stackGroup
+            .select(".yearGroup")
+            .selectAll(".yearDotsGroup")
+            .data((d) => {
+                if(stackData.length > 1) return [];
+                const dotData = d;
+                dotData.map((m) => m.fill =  colors[d.key] || colors["Other"])
+                return dotData;
+            })
+            .join((group) => {
+                const enter = group.append("g").attr("class", "yearDotsGroup");
+                enter.append("text").attr("class", "yearDotLabel");
+                enter.append("line").attr("class", "yearDotLine");
+                enter.append("circle").attr("class", "yearDot");
+                return enter;
+            });
+
+        yearGroup.select(".yearDotLabel")
+            .attr("visibility","hidden")
+            .attr("pointer-events","none")
+            .attr("text-anchor","middle")
+            .attr("font-size", 16)
+            .attr("x", (d) => xScale(d.data.Year))
+            .attr("y",  yScale(0) + 18)
+            .attr("fill", "#808080")
+            .text((d) => d.data.Year);
+
+        yearGroup.select(".yearDotLine")
+            .attr("visibility","hidden")
+            .attr("pointer-events","none")
+            .attr("x1", (d) => xScale(d.data.Year))
+            .attr("x2", (d) => xScale(d.data.Year))
+            .attr("y1", yScale(0))
+            .attr("y2", (d) => yScale(d[1]))
+            .attr("stroke", (d) => d.fill)
+            .attr("stroke-width", 1);
+
+
+        yearGroup.select(".yearDot")
+            .attr("cursor","pointer")
+            .attr("cx", (d) => xScale(d.data.Year))
+            .attr("cy", (d) => yScale(d[1]))
+            .attr("fill",(d) => d.fill)
+            .attr("r", 3)
+            .attr("stroke", "white")
+            .on("click", (event, d) => {
+                const currentDot = d3.select(event.currentTarget);
+                if(currentDot.attr("stroke") === "white"){
+                    svg.selectAll(".stackArea").attr("fill","white");
+                    xAxis.selectAll("text").attr("visibility", "hidden");
+                    d3.select(event.currentTarget).attr("stroke", d.fill);
+                    svg.selectAll(".yearDotLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+                    svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+                    resetNewsScroller(d.data.Descriptions.join(" | "));
+                } else {
+                    svg.selectAll(".stackArea").attr("fill",d.fill);
+                    xAxis.selectAll("text").attr("visibility", "visible");
+                    d3.select(event.currentTarget).attr("stroke", "white");
+                    svg.selectAll(".yearDotLabel").attr("visibility",  "hidden");
+                    svg.selectAll(".yearDotLine").attr("visibility",  "hidden");
+                    resetNewsScroller(allNews);
+                }
+            });
 
 
 
@@ -217,7 +405,7 @@ const stackedAreaChart = ()  => {
     }
 
     chart.filterResults = (value) => {
-        previousFilter = JSON.parse(JSON.stringify(getKey(filterResults)));
+        previousFilter = JSON.parse(JSON.stringify(filterResults === "" ? "" : getKey(filterResults)));
         svg.selectAll(".stackLabel").transition().duration(100).attr("opacity", 0);
         filterResults = value;
         drawAreaChart(false);
@@ -269,34 +457,17 @@ const voronoiHexChart = () => {
     let chartData = [];
     let chartWidth = 0;
     let props = {};
-    let areaChartSource = undefined;
-    let filterResults = "";
-    let root = {};
-    let svg = undefined;
-    let allDataPaths = {};
-    let previousFilter = "";
-    const drawVoronoiChart = (initial) => {
+    let areaChartSource = null;
+
+    const chart = (svg) => {
 
         const {margin,colors} = props;
 
         const nonOtherKeys = Object.keys(colors).filter((f) => f !== "Other");
 
-        const filteredChartData = chartData.reduce((acc, entry) => {
-            if(filterResults === ""){
-                acc.push(entry);
-            } else if (filterResults === "Other"){
-                if(!nonOtherKeys.includes(entry.name)){
-                    acc.push(entry);
-                }
-            } else if(nonOtherKeys.includes(filterResults) && entry.name === filterResults){
-                acc.push(entry);
-            }
-            return acc;
-        },[])
-
         root = d3.hierarchy({
             name: "root",
-            children: filteredChartData
+            children: chartData
         });
 
         root.descendants().map((m) => {
@@ -327,72 +498,52 @@ const voronoiHexChart = () => {
 
         const fontScale = d3
             .scaleLinear()
-            .domain(d3.extent(filteredChartData, (d) => d.value))
-            .range([6, filterResults === "Other" ? 20 : 35]);
+            .domain(d3.extent(chartData, (d) => d.value))
+            .range([6,  35]);
 
 
         const nodeGroup = svg
             .selectAll(".voronoiNodeGroup")
             .data(allData, (d) => d.data.name)
             .join((group) => {
-                const enter = group.append("g").attr("class", "voronoiNodeGroup");
-                enter.append("path").attr("class", "voronoiPath");
-                enter.append("text").attr("class", "voronoiLabel");
-                enter.attr("opacity",1);
-                return enter;
-            },(update) => update.attr("opacity",1),
-                (exit) => exit
-                    .attr("opacity",1)
-                    .interrupt()
-                    .transition()
-                    .duration(500)
-                    .attr("opacity",0));
+                    const enter = group.append("g").attr("class", "voronoiNodeGroup");
+                    enter.append("path").attr("class", "voronoiPath");
+                    enter.append("text").attr("class", "voronoiLabel");
+                    return enter;
+                });
+
+        let hoverTimeout;
 
         nodeGroup.attr(
             "transform",
-            `translate(${chartWidth  + margin.left + margin.middle},${margin.hexTop}) rotate(18)`
-        );
-
-        const getAnimationOpacity = (d) =>{
-            if(filterResults === "" && d.data.name !== previousFilter && !initial) return 0;
-            return 1;
-            ;        }
-        const getAnimationDelay = (d) => {
-            if(d.data.name === previousFilter || initial ) return 0;
-            return 500;
-        }
+            `translate(${margin.left},${margin.hexTop}) rotate(18)`
+        )
+            .on("mouseover", (event, d) => {
+                const currentTarget = event.currentTarget;
+                hoverTimeout = setTimeout(() => {
+                    d3.selectAll(".voronoiNodeGroup").attr("opacity", 0.2);
+                    d3.select(currentTarget).attr("opacity",1);
+                    areaChartSource.filterResults(d.data.name);
+                }, 500);
+            })
+            .on("mouseout", () => {
+                clearTimeout(hoverTimeout);
+            })
 
         nodeGroup
             .select(".voronoiPath")
             .attr("cursor", "pointer")
             .attr("stroke", "#F5F5F2")
             .attr("stroke-width", 2)
+            .attr("d", (d) => `M${d.polygon.join(",")}Z`)
             .attr("fill", (d) => colors[d.data.name] ? colors[d.data.name] : colors["Other"])
-            .on("mouseover", (event, d) => {
-                areaChartSource.filterResults(d.data.name);
-            })
-            .on("mouseout", (event, d) => {
+
+        svg.on("click", (event) => {
+            if(event.srcElement.tagName === "svg"){
+                d3.selectAll(".voronoiNodeGroup").attr("opacity", 1);
                 areaChartSource.filterResults("");
-            })
-
-
-            svg.selectAll(".voronoiPath")
-                .attr("opacity", getAnimationOpacity)
-                .interrupt()
-                .transition()
-                .delay(getAnimationDelay)
-                .duration(1000)
-                .attr("opacity", 1)
-                .attrTween("d", function(d,i,objects) {
-                    const newPath = `M${d.polygon.join(",")}Z`;
-                    const current =  d3.select(objects[i]).attr("d");
-                    const previous = initial ? newPath : current;
-                    const next = newPath;
-                    return flubber.interpolate(
-                        previous,
-                        next
-                    );
-                })
+            }
+        })
 
         const getLabel = (d) => {
             const labelWidthExtent = d3.extent(d.polygon,(d) => d[0]);
@@ -417,30 +568,11 @@ const voronoiHexChart = () => {
                 (d) => `translate(${d.polygon.site.x},${d.polygon.site.y}) rotate(-18)`
             )
             .text(getLabel)
-            .attr("fill", (d) => nonOtherKeys.includes(d.data.name) ? "white" : "#484848")
-            .attr("opacity", 0)
-            .interrupt()
-            .transition()
-            .delay( getAnimationDelay)
-            .duration(500)
-            .attr("opacity",1);
-    }
-    const chart = (incomingSvg) => {
-
-        svg = incomingSvg;
-
-        drawVoronoiChart(true);
+            .attr("fill", (d) => nonOtherKeys.includes(d.data.name) ? "white" : "#484848");
 
 
     }
 
-    chart.filterResults = (value) => {
-        previousFilter = JSON.parse(JSON.stringify(filterResults));
-        svg.selectAll(".voronoiLabel").transition().duration(100).attr("opacity", 0);
-        filterResults = value;
-        drawVoronoiChart(false);
-        return chart;
-    }
 
     chart.areaChartSource =  (value)  => {
         if (!value) return areaChartSource;
