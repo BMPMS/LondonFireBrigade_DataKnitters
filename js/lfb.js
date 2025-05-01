@@ -377,7 +377,7 @@ const stackedAreaChart = ()  => {
             .attr("cx", (d) => xScale(d.data.Year))
             .attr("cy", (d) => yScale(d[1]))
             .attr("fill",(d) => d.fill)
-            .attr("r", 3)
+            .attr("r", (d) => d[1] > 0 ? 3 : 0)
             .attr("stroke", "white");
 
         yearGroup.select(".yearDotRect")
