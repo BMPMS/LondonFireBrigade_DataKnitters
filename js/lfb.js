@@ -346,6 +346,7 @@ const stackedAreaChart = ()  => {
                 enter.append("text").attr("class", "yearDotLabel");
                 enter.append("line").attr("class", "yearDotLine");
                 enter.append("circle").attr("class", "yearDot");
+                enter.append("rect").attr("class","yearDotRect");
                 return enter;
             });
 
@@ -376,25 +377,29 @@ const stackedAreaChart = ()  => {
             .attr("cy", (d) => yScale(d[1]))
             .attr("fill",(d) => d.fill)
             .attr("r", 3)
-            .attr("stroke", "white")
+            .attr("stroke", "white");
+
+        yearGroup.select(".yearDotRect")
+            .attr("x", (d) => xScale(d.data.Year) - (xScale(d.data.Year) - xScale(d.data.Year - 1))/2)
+            .attr("fill", "transparent")
+            .attr("width", (d) => xScale(d.data.Year) - xScale(d.data.Year - 1))
+            .attr("height", chartHeight)
+            .on("mouseover", (event, d) => {
+                svg.selectAll(".stackArea").attr("fill","white");
+                xAxis.selectAll("text").attr("visibility", "hidden");
+                svg.selectAll(".yearDot").attr("stroke",  (l) => l.data.Year === d.data.Year ? d.fill : "white");
+                svg.selectAll(".yearDotLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+                svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+                resetNewsScroller(d.data.Descriptions.join(" | "));
+            })
             .on("click", (event, d) => {
-                const currentDot = d3.select(event.currentTarget);
-                if(currentDot.attr("stroke") === "white"){
-                    svg.selectAll(".stackArea").attr("fill","white");
-                    xAxis.selectAll("text").attr("visibility", "hidden");
-                    d3.select(event.currentTarget).attr("stroke", d.fill);
-                    svg.selectAll(".yearDotLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
-                    svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
-                    resetNewsScroller(d.data.Descriptions.join(" | "));
-                } else {
-                    svg.selectAll(".stackArea").attr("fill",d.fill);
-                    xAxis.selectAll("text").attr("visibility", "visible");
-                    d3.select(event.currentTarget).attr("stroke", "white");
-                    svg.selectAll(".yearDotLabel").attr("visibility",  "hidden");
-                    svg.selectAll(".yearDotLine").attr("visibility",  "hidden");
-                    resetNewsScroller(allNews);
-                }
-            });
+                svg.selectAll(".stackArea").attr("fill",d.fill);
+                xAxis.selectAll("text").attr("visibility", "visible");
+                svg.selectAll(".yearDotLabel").attr("visibility",  "hidden");
+                svg.selectAll(".yearDotLine").attr("visibility",  "hidden");
+                svg.selectAll(".yearDot").attr("stroke","white");
+                resetNewsScroller(allNews);
+            })
 
 
 
