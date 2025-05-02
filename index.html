@@ -18,7 +18,7 @@
 </div>
 <div class="news-container">
     <div class="news-ticker">
-     hover over hexagon slices to filter | click anywhere outside charts to reset
+     click or hover hexagon slices to filter  |  click anywhere outside charts to reset
     </div>
 </div>
 <script>
@@ -28,13 +28,13 @@
     // props which you can dynamically change
     const props = { // order matters!
        colors: {Cat:"#8BB88F",Bird:"#85ACC1",Dog:"#F2B680",Fox:"#AF5A5D",Other:"#ababab"},
-        margin: {left: 90, right: 90, middle: 120, top: 150, hexTop: 130,bottom: 100}
+        margin: {hexLeft: 75, left: 60, right: 60, middle: 160, top: 170, hexTop: 150,bottom: 80}
     }
 
     const divId = "chartDiv";
     // build the svg and required groups
     const chartDiv = document.getElementById(divId);
-    const viewboxWidth = 950;
+    const viewboxWidth = 970;
     const viewboxHeight = 700;
     const heightToWidthRatio = viewboxHeight/viewboxWidth;
     let width = chartDiv.clientWidth;
@@ -133,12 +133,15 @@
     }
 
     const loadChart = async () => {
+
         const {areaData, voronoiData,allRescues} = await getChartData();
 
-        const chartWidth = 300;
-        const chartHeight = 365;
-        props.margin.top = (viewboxHeight - chartHeight) * 0.6;
-        props.margin.hexTop = props.margin.top - 20;
+        const chartWidth = 320;
+        const chartHeight = 380;
+
+        props.margin.top = (viewboxHeight - chartHeight) * 0.65;
+        props.margin.hexTop = props.margin.top - 135;
+
         const areaChart = stackedAreaChart()
             .chartData(areaData)
             .allRescues(allRescues)
@@ -152,7 +155,7 @@
         const voronoiChart = voronoiHexChart()
             .areaChartSource(areaChart)
             .chartData(voronoiData)
-            .chartWidth(chartHeight - 15)
+            .chartWidth(chartHeight + 65)
             .props(props)
 
         voronoiChart(svg);

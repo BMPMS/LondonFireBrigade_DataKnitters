@@ -4,6 +4,47 @@ const measureWidth = (text, fontSize) => {
     context.font = `${fontSize}px Arial`;
     return context.measureText(text).width;
 }
+
+const wrap = (text, width, fontSize) => {
+    text.each(function () {
+        var text = d3.select(this),
+            words = text.text().split(/\s+/).reverse(),
+            word,
+            line = [],
+            lineNumber = 1,
+            y = text.attr("y"),
+            dy = 0,
+            tspan = text
+                .text(null)
+                .append("tspan")
+                .attr("x", 0)
+                .attr("y", y)
+                .attr("dy", dy);
+        while ((word = words.pop())) {
+            line.push(word);
+            const currentText = line.join(" ");
+            tspan.text(currentText);
+            if (measureWidth(currentText, fontSize) > width) {
+                line.pop();
+                tspan.text(line.join(" "));
+                line = [word];
+                if (word.trim() !== "") {
+                    if (tspan.text().trim() === "") {
+                        tspan.text(word);
+                    } else {
+                        lineNumber += 1;
+                        tspan = text
+                            .append("tspan")
+                            .attr("x", 0)
+                            .attr("y", y)
+                            .attr("dy", fontSize)
+                            .text(word);
+                    }
+                }
+            }
+        }
+    });
+}
 const getStackData = (chartData, colors,filterResults) => {
 
     const colourKeys = Object.keys(colors).reverse();
@@ -72,7 +113,8 @@ const stackedAreaChart = ()  => {
 
         const stackData = getStackData(filteredChartData,colors,filterResults);
 
-        const allNews = stackData.length > 1 ? "hover over hexagon slices to filter | click anywhere outside charts to reset" :
+        const allNews = stackData.length > 1 ? "click or hover hexagon slices to filter  |  click anywhere outside charts to reset\n" +
+            "   " :
             stackData[0].flatMap(d => d.data.Descriptions).join(" | ");
 
         resetNewsScroller(allNews);
@@ -82,13 +124,87 @@ const stackedAreaChart = ()  => {
 
         let xAxis = svg.select(".xAxis");
         let yAxis = svg.select(".yAxis");
+        let title = svg.select(".chartTitle");
+        let subTitle = svg.select(".chartSubtitle");
+        let extraInfo = svg.select(".extraInfo");
+        let rescuesCount = svg.select(".rescuesCount");
+        let rescuesCountExtra = svg.select(".rescuesCountExtra");
+        let catInfo = svg.select(".catInfo");
+        let catImage = svg.select(".catImage");
+        let covidLine = svg.select(".covidLine");
 
         if(xAxis.node() === null){
             xAxis = svg.append("g").attr("class","xAxis");
             yAxis = svg.append("g").attr("class","yAxis");
+            title = svg.append("text").attr("class","chartTitle");
+            subTitle = svg.append("text").attr("class","chartSubtitle");
+            extraInfo = svg.append("text").attr("class","extraInfo");
+            rescuesCountExtra = svg.append("text").attr("class","rescuesCountExtra");
+            rescuesCount = svg.append("text").attr("class","rescuesCount");
+            catInfo = svg.append("text").attr("class","catInfo");
+            catImage = svg.append("image").attr("class","catImage");
+            covidLine = svg.append("line").attr("class","covidLine");
             svg.append("clipPath").attr("id", "yAxisClipPath")
                 .append("rect").attr("id","yAxisClipPathRect");
+
         }
+
+        title.attr("x", 40)
+            .attr("y",55)
+            .attr("font-size",35)
+            .attr("fill","#020000")
+            .text("Fur, feathers and fire engines");
+
+        subTitle.attr("x", 40)
+            .attr("y",85)
+            .attr("font-size",20)
+            .attr("fill","#020000")
+            .text("Animal rescues by the London Fire Brigade from 2009 to 2024");
+
+        const totalRescues = d3.sum(chartData, (d) => d.Count);
+
+        rescuesCount.attr("x", 40)
+            .attr("y",margin.top + chartHeight - 20)
+            .attr("font-size",30)
+            .attr("fill","#020000")
+            .text(d3.format(",")(totalRescues));
+
+        rescuesCountExtra.attr("x", 40)
+            .attr("y",margin.top + chartHeight)
+            .attr("font-size",18)
+            .attr("fill","#020000")
+            .text("rescues in total");
+
+        extraInfo
+            .attr("transform",`translate(${transformX + xScale(2020)},${margin.top - 75})`)
+            .attr("font-size",12)
+            .attr("text-anchor","middle")
+            .attr("fill","#808080")
+            .text("During the COVID-19 lockdowns, pet ownership surged as many sought companionship. This led to a sharp rise in animal rescue calls to fire brigades, which more than doubled.")
+            .call(wrap, 255, 12);
+
+        catImage
+            .attr("width", 25)
+            .attr("height", 25)
+            .attr("xlink:href", "images/Cat.png")
+            .attr("transform", `translate(${transformX - 75},${margin.top + chartHeight - 100})`)
+
+        catInfo
+            .attr("transform",`translate(${transformX - 50},${margin.top + chartHeight - 60})`)
+            .attr("font-size",12)
+            .attr("text-anchor","end")
+            .attr("fill","#808080")
+            .text("Research shows sustained interest in cat adoptions compared to dogs, which may partly explains the significant increase in cat rescues.")
+            .call(wrap, 140, 12);
+
+        covidLine
+            .attr("stroke", "#808080")
+            .attr("stroke-width",0.5)
+            .attr("x1", transformX + xScale(2020))
+            .attr("x2", transformX + xScale(2020))
+            .attr("y1", margin.top - 30)
+            .attr("y2", margin.top + chartHeight);
+
 
         svg.select("#yAxisClipPathRect")
             .attr("width", margin.left)
@@ -177,6 +293,9 @@ const stackedAreaChart = ()  => {
                     .attr("opacity",0);
 
                     exit.selectAll(".yearDotsGroup")
+                        .attr("opacity",0);
+
+                    exit.selectAll(".stackImage")
                         .attr("opacity",0);
 
                 exit
@@ -271,14 +390,15 @@ const stackedAreaChart = ()  => {
             .attr("font-weight", 600)
             .attr("fill", "grey")
             .attr("dominant-baseline","middle")
-            .attr("transform", (d) => `translate(${chartWidth + 5},${20})`)
+            .attr("transform",  `translate(${chartWidth + 5},${20})`)
             .attr("font-size", 16)
+            .text((d) =>   d.key === filterResults ? d3.sum(d, (m) => m.data[d.key]) : "")
             .interrupt()
             .transition()
             .delay(getAnimationDelay)
             .duration(500)
             .attr("opacity",1)
-            .text((d) =>   d.key === filterResults ? d3.sum(d, (m) => m.data[d.key]) : "")
+
 
 
         stackGroup.select(".stackArea")
@@ -348,6 +468,7 @@ const stackedAreaChart = ()  => {
             .join((group) => {
                 const enter = group.append("g").attr("class", "yearDotsGroup");
                 enter.append("text").attr("class", "yearDotLabel");
+                enter.append("text").attr("class", "yearDotCountLabel");
                 enter.append("line").attr("class", "yearDotLine");
                 enter.append("circle").attr("class", "yearDot");
                 enter.append("rect").attr("class","yearDotRect");
@@ -363,6 +484,16 @@ const stackedAreaChart = ()  => {
             .attr("y",  yScale(0) + 18)
             .attr("fill", "#808080")
             .text((d) => d.data.Year);
+
+        yearGroup.select(".yearDotCountLabel")
+            .attr("visibility","hidden")
+            .attr("pointer-events","none")
+            .attr("text-anchor","middle")
+            .attr("font-size", 12)
+            .attr("x", (d) => xScale(d.data.Year))
+            .attr("y",  yScale(0) + 32)
+            .attr("fill", "#808080")
+            .text((d) => `${d[1]} rescues`);
 
         yearGroup.select(".yearDotLine")
             .attr("visibility","hidden")
@@ -383,26 +514,36 @@ const stackedAreaChart = ()  => {
             .attr("r", (d) => d[1] > 0 ? 3 : 0)
             .attr("stroke", "white");
 
+        const filterAreaByYear = (d) => {
+            svg.selectAll(".stackArea").attr("fill","white");
+            xAxis.selectAll("text").attr("visibility", "hidden");
+            svg.selectAll(".yearDot").attr("stroke",  (l) => l.data.Year === d.data.Year ? d.fill : "white");
+            svg.selectAll(".yearDotLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+            svg.selectAll(".yearDotCountLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+            svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
+            resetNewsScroller(d.data.Descriptions.join(" | "));
+        }
         yearGroup.select(".yearDotRect")
             .attr("x", (d) => xScale(d.data.Year) - (xScale(d.data.Year) - xScale(d.data.Year - 1))/2)
             .attr("fill", "transparent")
             .attr("width", (d) => xScale(d.data.Year) - xScale(d.data.Year - 1))
             .attr("height", chartHeight)
             .on("mouseover", (event, d) => {
-                svg.selectAll(".stackArea").attr("fill","white");
-                xAxis.selectAll("text").attr("visibility", "hidden");
-                svg.selectAll(".yearDot").attr("stroke",  (l) => l.data.Year === d.data.Year ? d.fill : "white");
-                svg.selectAll(".yearDotLabel").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
-                svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
-                resetNewsScroller(d.data.Descriptions.join(" | "));
+               filterAreaByYear(d)
             })
             .on("click", (event, d) => {
-                svg.selectAll(".stackArea").attr("fill",d.fill);
-                xAxis.selectAll("text").attr("visibility", "visible");
-                svg.selectAll(".yearDotLabel").attr("visibility",  "hidden");
-                svg.selectAll(".yearDotLine").attr("visibility",  "hidden");
-                svg.selectAll(".yearDot").attr("stroke","white");
-                resetNewsScroller(allNews);
+                const currentFill = d3.select(event.currentTarget).attr("fill");
+                if(currentFill === "white"){
+                    svg.selectAll(".stackArea").attr("fill",d.fill);
+                    xAxis.selectAll("text").attr("visibility", "visible");
+                    svg.selectAll(".yearDotLabel").attr("visibility",  "hidden");
+                    svg.selectAll(".yearDotCountLabel").attr("visibility",  "hidden");
+                    svg.selectAll(".yearDotLine").attr("visibility",  "hidden");
+                    svg.selectAll(".yearDot").attr("stroke","white");
+                    resetNewsScroller(allNews);
+                } else {
+                    filterAreaByYear(d);
+                }
             })
 
 
@@ -525,7 +666,7 @@ const voronoiHexChart = () => {
 
         nodeGroup.attr(
             "transform",
-            `translate(${margin.left},${margin.hexTop}) rotate(18)`
+            `translate(${margin.hexLeft},${margin.hexTop}) rotate(18)`
         )
             .on("mouseover", (event, d) => {
                 const currentTarget = event.currentTarget;
@@ -538,6 +679,12 @@ const voronoiHexChart = () => {
             .on("mouseout", () => {
                 clearTimeout(hoverTimeout);
             })
+            .on("click", (event, d) => {
+                const currentTarget = event.currentTarget;
+                d3.selectAll(".voronoiNodeGroup").attr("opacity", 0.2);
+                d3.select(currentTarget).attr("opacity",1);
+                areaChartSource.filterResults(d.data.name);
+            })
 
         nodeGroup
             .select(".voronoiPath")
@@ -548,7 +695,7 @@ const voronoiHexChart = () => {
             .attr("fill", (d) => colors[d.data.name] ? colors[d.data.name] : colors["Other"])
 
         svg.on("click", (event) => {
-            if(event.srcElement.tagName === "svg"){
+            if(event.srcElement.tagName === "svg" && filterResults !== ""){
                 d3.selectAll(".voronoiNodeGroup").attr("opacity", 1);
                 areaChartSource.filterResults("");
             }
