@@ -194,7 +194,7 @@ const stackedAreaChart = ()  => {
             .attr("font-size",12)
             .attr("text-anchor","end")
             .attr("fill","#808080")
-            .text("Research shows sustained interest in cat adoptions compared to dogs, which may partly explains the significant increase in cat rescues.")
+            .text("Research shows sustained interest in cat adoptions compared to dogs, which may partly explain the significant increase in cat rescues.")
             .call(wrap, 140, 12);
 
         covidLine
