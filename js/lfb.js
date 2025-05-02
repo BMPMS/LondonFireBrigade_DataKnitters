@@ -608,6 +608,7 @@ const voronoiHexChart = () => {
     let chartWidth = 0;
     let props = {};
     let areaChartSource = null;
+    let currentAreaFilter = "";
 
     const chart = (svg) => {
 
@@ -674,6 +675,7 @@ const voronoiHexChart = () => {
                     d3.selectAll(".voronoiNodeGroup").attr("opacity", 0.2);
                     d3.select(currentTarget).attr("opacity",1);
                     areaChartSource.filterResults(d.data.name);
+                    currentAreaFilter = d.data.name;
                 }, 500);
             })
             .on("mouseout", () => {
@@ -684,6 +686,7 @@ const voronoiHexChart = () => {
                 d3.selectAll(".voronoiNodeGroup").attr("opacity", 0.2);
                 d3.select(currentTarget).attr("opacity",1);
                 areaChartSource.filterResults(d.data.name);
+                currentAreaFilter = d.data.name;
             })
 
         nodeGroup
@@ -695,9 +698,10 @@ const voronoiHexChart = () => {
             .attr("fill", (d) => colors[d.data.name] ? colors[d.data.name] : colors["Other"])
 
         svg.on("click", (event) => {
-            if(event.srcElement.tagName === "svg" && filterResults !== ""){
+            if(event.srcElement.tagName === "svg" && currentAreaFilter !== ""){
                 d3.selectAll(".voronoiNodeGroup").attr("opacity", 1);
                 areaChartSource.filterResults("");
+                currentAreaFilter = "";
             }
         })
 
