@@ -78,6 +78,17 @@ const getStackData = (chartData, colors,filterResults) => {
     return d3.stack().keys(stackKeys)(filterResults === "" ? dataForStack : chartData);
 }
 
+const resetNewsScroller = (latestNews) => {
+    const speedPixelsPerSecond = 200;
+    const ticker = d3.select(".news-ticker").html(latestNews);
+
+    ticker.style("animation", "none");
+    ticker.node().offsetHeight;
+    const tickerWidth = ticker.node().offsetWidth;
+    const screenWidth = window.innerWidth;
+    const duration = (tickerWidth + screenWidth) / speedPixelsPerSecond;
+    ticker.style("animation", `scrollNews ${duration}s linear infinite`);
+}
 
 const stackedAreaChart = ()  => {
 
@@ -89,20 +100,10 @@ const stackedAreaChart = ()  => {
     let filterResults = "";
     let previousFilter = "";
     let dataPathsALL = {};
+    const transitionTime = 500;
 
     const getKey = (currentKey) => Object.keys(props.colors).includes(currentKey) ? currentKey : "Other";
 
-    const resetNewsScroller = (latestNews) => {
-        const speedPixelsPerSecond = 200;
-        const ticker = d3.select(".news-ticker").html(latestNews);
-
-        ticker.style("animation", "none");
-        ticker.node().offsetHeight;
-        const tickerWidth = ticker.node().offsetWidth;
-        const screenWidth = window.innerWidth;
-        const duration = (tickerWidth + screenWidth) / speedPixelsPerSecond;
-        ticker.style("animation", `scrollNews ${duration}s linear infinite`);
-    }
     const drawAreaChart = (initial) => {
 
         const {margin, colors} = props;
@@ -113,8 +114,7 @@ const stackedAreaChart = ()  => {
 
         const stackData = getStackData(filteredChartData,colors,filterResults);
 
-        const allNews = stackData.length > 1 ? "click or hover hexagon slices to filter  |  click anywhere outside charts to reset\n" +
-            "   " :
+        const allNews = stackData.length > 1 ? props.marqueeMessage :
             stackData[0].flatMap(d => d.data.Descriptions).join(" | ");
 
         resetNewsScroller(allNews);
@@ -122,6 +122,7 @@ const stackedAreaChart = ()  => {
         const yMax = d3.max(stackData, (d) => d3.max(d, (m) => m[1]));
         const yScale = d3.scaleLinear().domain([0,yMax]).range([chartHeight,0]);
 
+        // static svg elements
         let xAxis = svg.select(".xAxis");
         let yAxis = svg.select(".yAxis");
         let title = svg.select(".chartTitle");
@@ -134,6 +135,7 @@ const stackedAreaChart = ()  => {
         let covidLine = svg.select(".covidLine");
 
         if(xAxis.node() === null){
+            // append if initial draw
             xAxis = svg.append("g").attr("class","xAxis");
             yAxis = svg.append("g").attr("class","yAxis");
             title = svg.append("text").attr("class","chartTitle");
@@ -146,8 +148,8 @@ const stackedAreaChart = ()  => {
             covidLine = svg.append("line").attr("class","covidLine");
             svg.append("clipPath").attr("id", "yAxisClipPath")
                 .append("rect").attr("id","yAxisClipPathRect");
-
         }
+        // position static svg elements
 
         title.attr("x", 40)
             .attr("y",55)
@@ -176,6 +178,7 @@ const stackedAreaChart = ()  => {
             .text("rescues in total");
 
         extraInfo
+            .attr("visibility", filterResults === "" || filterResults === "Cat" ? "visible" : "hidden")
             .attr("transform",`translate(${transformX + xScale(2020)},${margin.top - 75})`)
             .attr("font-size",12)
             .attr("text-anchor","middle")
@@ -187,24 +190,26 @@ const stackedAreaChart = ()  => {
             .attr("width", 25)
             .attr("height", 25)
             .attr("xlink:href", "images/Cat.png")
-            .attr("transform", `translate(${transformX - 75},${margin.top + chartHeight - 100})`)
+            .attr("transform", `translate(${transformX - 85},${margin.top + chartHeight - 100})`)
 
         catInfo
-            .attr("transform",`translate(${transformX - 50},${margin.top + chartHeight - 60})`)
+            .attr("transform",`translate(${transformX - 60},${margin.top + chartHeight - 60})`)
             .attr("font-size",12)
             .attr("text-anchor","end")
             .attr("fill","#808080")
             .text("Research shows sustained interest in cat adoptions compared to dogs, which may partly explain the significant increase in cat rescues.")
             .call(wrap, 140, 12);
 
+        const total2020 = d3.sum(stackData, (d) => d.filter((f) => +f.data.Year === 2020).map((m) => m[1] - m[0]));
+
         covidLine
+            .attr("visibility", filterResults === "" || filterResults === "Cat" ? "visible" : "hidden")
             .attr("stroke", "#808080")
             .attr("stroke-width",0.5)
             .attr("x1", transformX + xScale(2020))
             .attr("x2", transformX + xScale(2020))
-            .attr("y1", margin.top - 30)
-            .attr("y2", margin.top + chartHeight);
-
+            .attr("y1", margin.top - 32)
+            .attr("y2", margin.top + yScale(total2020) - 10);
 
         svg.select("#yAxisClipPathRect")
             .attr("width", margin.left)
@@ -233,7 +238,7 @@ const stackedAreaChart = ()  => {
             .attr("clip-path", "url(#yAxisClipPath)")
             .attr("transform", `translate(${transformX},${margin.top})`)
             .transition()
-            .duration(500)
+            .duration(transitionTime)
             .call(d3.axisLeft(yScale).ticks(5).tickSizeOuter(0));
 
         yAxis.selectAll("path").attr("stroke", "#D0D0D0");
@@ -244,7 +249,7 @@ const stackedAreaChart = ()  => {
             .attr("x1",0)
             .attr("x2",chartWidth)
             .transition()
-            .duration(500)
+            .duration(transitionTime)
             .attr("x2", chartWidth)
 
         yAxis
@@ -270,8 +275,8 @@ const stackedAreaChart = ()  => {
             .y0(d => yScale(d[0]))
             .y1(d => yScale(d[1]));
 
-
         if(initial){
+            // save positions for all data for animation
             stackData.forEach((d) => dataPathsALL[getKey(d.key)] = area(d));
         }
 
@@ -281,56 +286,31 @@ const stackedAreaChart = ()  => {
             .join((group) => {
                 const enter = group.append("g").attr("class", "stackGroup");
                 enter.append("path").attr("class", "stackArea");
-                enter.append("image").attr("class","stackImage");
-                enter.append("text").attr("class","stackLabel");
-                enter.append("text").attr("class","stackLabelTotal");
-                enter.append("g").attr("class","yearGroup");
+                enter.append("image").attr("class","labelItem stackImage");
+                enter.append("text").attr("class","labelItem stackLabel");
+                enter.append("text").attr("class","labelItem stackLabelTotal");
+                enter.append("g").attr("class","labelItem yearGroup");
                 return enter;
             },(update) => update.attr("opacity",1),
                 (exit) => {
-
-                exit.selectAll(".stackLabelTotal")
+                // hide labels first
+                exit.selectAll(".labelItem")
                     .attr("opacity",0);
 
-                    exit.selectAll(".yearDotsGroup")
-                        .attr("opacity",0);
-
-                    exit.selectAll(".stackImage")
-                        .attr("opacity",0);
-
+                // fade out exit areas delaying previousFilter for fade
                 exit
                     .attr("opacity",1)
                     .interrupt()
                     .transition()
-                    .duration(previousFilter === "" ? 500 : 0)
+                    .duration(previousFilter === "" ? transitionTime : 0)
                     .attr("opacity",(d) => getKey(d.key) === previousFilter ? 1 : 0)
                     .transition()
-                    .duration(500)
+                    .duration(transitionTime)
                     .attr("opacity",0);
 
-                // can share code later
-                exit.selectAll(".stackArea")
-                    .transition()
-                    .duration(500)
-                    .attrTween("d", function(d,i,objects) {
-                        // Step 1 - animate from singleArea (if relevant) to stackedArea
-                        if(getKey(d.key) !== previousFilter) {
-                            return  () => d3.select(objects[i]).attr("d")
-                        }
-                        // always animating from stackedArea to singleArea
-                        // EXCEPT when filterResults === "" which is areaStart => area
-                        const previous = d3.select(objects[i]).attr("d");
-                        const next = dataPathsALL[getKey(d.key)];
-                        // flubber needed here as otherwise the area flips
-                        return flubber.interpolate(
-                            previous,
-                            next,
-                            {maxSegmentLength: 10}
-                        );
 
-                    })
-                    return exit})
-            ;
+             return exit})
+
 
         stackGroup.attr("transform", `translate(${transformX},${margin.top})`)
 
@@ -347,30 +327,22 @@ const stackedAreaChart = ()  => {
 
         const imageKeys = ["Cat","Dog","Bird"]
 
-        stackGroup.select(".stackImage")
-            .filter((d) => imageKeys.includes(d.key))
+        stackGroup.selectAll(".labelItem")
             .attr("opacity", getAnimationOpacity)
-            .attr("width", 25)
-            .attr("height", 25)
-            .attr("xlink:href", (d) => `images/${d.key}.png`)
-            .attr("transform", (d) => `translate(${chartWidth + 5},${filterResults === ""?  yScale((d[0][1])) - 8  : -18})`)
             .interrupt()
             .transition()
             .delay(getAnimationDelay)
-            .duration(500)
+            .duration(transitionTime)
             .attr("opacity",1);
 
-        stackGroup
-            .select(".yearGroup")
-            .attr("opacity", 0)
-            .interrupt()
-            .transition()
-            .delay((d) => getAnimationDelay(d) + 500)
-            .duration(500)
-            .attr("opacity",1);
+        stackGroup.select(".stackImage")
+            .filter((d) => imageKeys.includes(d.key))
+            .attr("width", 25)
+            .attr("height", 25)
+            .attr("xlink:href", (d) => `images/${d.key}.png`)
+            .attr("transform", (d) => `translate(${chartWidth + 5},${filterResults === ""?  yScale((d[0][1])) - 8  : -18})`);
 
         stackGroup.select(".stackLabel")
-            .attr("opacity", getAnimationOpacity)
             .attr("pointer-events", "none")
             .attr("font-weight", 600)
             .attr("fill", "grey")
@@ -378,14 +350,8 @@ const stackedAreaChart = ()  => {
             .attr("transform", (d) => `translate(${chartWidth + 5 + (imageKeys.includes(d.key) ? 30 : 0)},${filterResults === ""?  yScale((d[0][1])) + 10 : 0})`)
             .attr("font-size", 16)
             .text((d) =>  d.key)
-            .interrupt()
-            .transition()
-            .delay(getAnimationDelay)
-            .duration(500)
-            .attr("opacity",1);
 
         stackGroup.select(".stackLabelTotal")
-            .attr("opacity", getAnimationOpacity)
             .attr("pointer-events", "none")
             .attr("font-weight", 600)
             .attr("fill", "grey")
@@ -393,12 +359,6 @@ const stackedAreaChart = ()  => {
             .attr("transform",  `translate(${chartWidth + 5},${20})`)
             .attr("font-size", 16)
             .text((d) =>   d.key === filterResults ? d3.sum(d, (m) => m.data[d.key]) : "")
-            .interrupt()
-            .transition()
-            .delay(getAnimationDelay)
-            .duration(500)
-            .attr("opacity",1)
-
 
 
         stackGroup.select(".stackArea")
@@ -407,13 +367,11 @@ const stackedAreaChart = ()  => {
             .interrupt()
            .transition()
            .duration((d) => getKey(d.key) === previousFilter ? 500 : 0)
-            .attrTween("d", function(d,i,objects) {
-                // this is other only
+            .attrTween("d", (d,i,objects) => {
                 // Step 1 - animate from singleArea (if relevant) to stackedArea
                 if(getKey(d.key) !== previousFilter) {
-                    return  () => d3.select(objects[i]).attr("d") || ""
+                    return  () => d3.select(objects[i]).attr("d") || "";
                 }
-
                 // always animating from stackedArea to singleArea
                 // EXCEPT when filterResults === "" which is areaStart => area
                 const previous = d3.select(objects[i]).attr("d");
@@ -427,14 +385,14 @@ const stackedAreaChart = ()  => {
 
             })
             .transition()
-            .duration(!filterResults === "" && previousFilter !== "" && !(filterResults === "Other" && previousFilter === "Other") ? 500 : 0)
+            .duration(!filterResults === "" && previousFilter !== "" && !(filterResults === "Other" && previousFilter === "Other") ? transitionTime : 0)
             .attr("opacity", getAnimationOpacity)
             .transition()
             .delay(getAnimationDelay)
             .duration(filterResults === "" && !initial ? 0 : 500)
             .attr("opacity", 1)
             .attrTween("d", function(d) {
-                // Step 3 - final animation
+                // Step 2 - final animation
                 // always animating from stackedArea to singleArea
                 // EXCEPT when filterResults === "" which is areaStart => area
                 const previous = filterResults === "" ? areaStart(d) : dataPathsALL[getKey(d.key)];
@@ -505,14 +463,17 @@ const stackedAreaChart = ()  => {
             .attr("stroke", (d) => d.fill)
             .attr("stroke-width", 1);
 
-
         yearGroup.select(".yearDot")
             .attr("cursor","pointer")
             .attr("cx", (d) => xScale(d.data.Year))
             .attr("cy", (d) => yScale(d[1]))
             .attr("fill",(d) => d.fill)
-            .attr("r", (d) => d[1] > 0 ? 3 : 0)
-            .attr("stroke", "white");
+            .attr("stroke", "white")
+            .attr("r", 0)
+            .transition()
+            .delay(transitionTime * 2)
+            .duration(transitionTime/2)
+            .attr("r", (d) => d[1] > 0 ? 3 : 0);
 
         const filterAreaByYear = (d) => {
             svg.selectAll(".stackArea").attr("fill","white");
@@ -523,6 +484,7 @@ const stackedAreaChart = ()  => {
             svg.selectAll(".yearDotLine").attr("visibility", (l) => l.data.Year === d.data.Year ? "visible" : "hidden")
             resetNewsScroller(d.data.Descriptions.join(" | "));
         }
+
         yearGroup.select(".yearDotRect")
             .attr("x", (d) => xScale(d.data.Year) - (xScale(d.data.Year) - xScale(d.data.Year - 1))/2)
             .attr("fill", "transparent")
@@ -532,7 +494,7 @@ const stackedAreaChart = ()  => {
                filterAreaByYear(d)
             })
             .on("click", (event, d) => {
-                const currentFill = d3.select(event.currentTarget).attr("fill");
+                const currentFill = svg.selectAll(".stackArea").attr("fill");
                 if(currentFill === "white"){
                     svg.selectAll(".stackArea").attr("fill",d.fill);
                     xAxis.selectAll("text").attr("visibility", "visible");
@@ -650,8 +612,7 @@ const voronoiHexChart = () => {
         const fontScale = d3
             .scaleLinear()
             .domain(d3.extent(chartData, (d) => d.value))
-            .range([6,  35]);
-
+            .range([9,  35]);
 
         const nodeGroup = svg
             .selectAll(".voronoiNodeGroup")
@@ -665,10 +626,8 @@ const voronoiHexChart = () => {
 
         let hoverTimeout;
 
-        nodeGroup.attr(
-            "transform",
-            `translate(${margin.hexLeft},${margin.hexTop}) rotate(18)`
-        )
+        nodeGroup
+            .attr("transform", `translate(${margin.hexLeft},${margin.hexTop}) rotate(18)`)
             .on("mouseover", (event, d) => {
                 const currentTarget = event.currentTarget;
                 hoverTimeout = setTimeout(() => {
@@ -706,16 +665,20 @@ const voronoiHexChart = () => {
         })
 
         const getLabel = (d) => {
-            const labelWidthExtent = d3.extent(d.polygon,(d) => d[0]);
-            const labelWidth = labelWidthExtent[1] - labelWidthExtent[0];
-            const labelHeightExtent = d3.extent(d.polygon,(d) => d[1]);
-            const labelHeight = labelHeightExtent[1] - labelHeightExtent[0];
-            const fontSize = fontScale(d.data.value);
-            const fitsWidth = labelWidth > measureWidth(d.data.name,  fontSize * 1.3);
-            const fitsHeight = labelHeight > fontSize * 1.2;
-            if(fitsWidth && fitsHeight) return d.data.name;
-            return ""
+            // hard coding visible labels based on design decision
+            const labels = ["Bird","Fox","Dog","Cat", "Deer", "Horse", "Squirrel"]
+            return labels.includes(d.data.name) ? d.data.name : "";
+        }
+        const getLabelX = (d) => {
+            const midX = d.polygon.site.x;
+            const customXShifts = {"Fox": -10, "Squirrel": -3};
+            return customXShifts[d.data.name] ? midX + customXShifts[d.data.name]: midX;
+        }
 
+        const getLabelY = (d) => {
+            const midY = d.polygon.site.y;
+            const customYShifts = {"Fox": -5, "Squirrel": 5};
+            return customYShifts[d.data.name] ? midY + customYShifts[d.data.name]: midY;
         }
         nodeGroup
             .select(".voronoiLabel")
@@ -725,7 +688,7 @@ const voronoiHexChart = () => {
             .attr("font-size", (d) => fontScale(d.data.value))
             .attr(
                 "transform",
-                (d) => `translate(${d.polygon.site.x},${d.polygon.site.y}) rotate(-18)`
+                (d) => `translate(${getLabelX(d)},${getLabelY(d)}) rotate(-18)`
             )
             .text(getLabel)
             .attr("fill", (d) => nonOtherKeys.includes(d.data.name) ? "white" : "#484848");

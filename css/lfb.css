@@ -13,6 +13,9 @@ body, svg {
 
 /* The first child div takes up 100% width - 180px and 100% height */
 #chartDiv {
+    display: flex;
+    align-items: center;      /* vertical centering */
+    justify-content: center;  /* horizontal centering */
     width: 100%;
     height: calc(100vh - 66px);
     text-align: center;
