@@ -26,7 +26,7 @@ body, svg {
     overflow: hidden;
     background: white;
     border: 0px solid #ccc;
-    height: 60px;
+    height: 4rem;
     position: relative;
     display: flex;
     align-items: center;
@@ -39,7 +39,7 @@ body, svg {
     will-change: transform;
     animation: scrollNews 12s linear infinite;
     color: #808080;
-    font-size: 20px;
+    font-size: 1rem;
     padding-left: 100%; /* Start from outside right */
 }
 
