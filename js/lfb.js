@@ -179,26 +179,26 @@ const stackedAreaChart = ()  => {
 
         extraInfo
             .attr("visibility", filterResults === "" || filterResults === "Cat" ? "visible" : "hidden")
-            .attr("transform",`translate(${transformX + xScale(2020)},${margin.top - 75})`)
-            .attr("font-size",12)
+            .attr("transform",`translate(${transformX + xScale(2020)},${margin.top - 100})`)
+            .attr("font-size",15)
             .attr("text-anchor","middle")
             .attr("fill","#808080")
             .text("During the COVID-19 lockdowns, pet ownership surged as many sought companionship. This led to a sharp rise in animal rescue calls to fire brigades, which more than doubled.")
-            .call(wrap, 255, 12);
+            .call(wrap, 300, 15);
 
         catImage
             .attr("width", 25)
             .attr("height", 25)
             .attr("xlink:href", "images/Cat.png")
-            .attr("transform", `translate(${transformX - 85},${margin.top + chartHeight - 100})`)
+            .attr("transform", `translate(${transformX - 85},${margin.top + chartHeight - 120})`)
 
         catInfo
-            .attr("transform",`translate(${transformX - 60},${margin.top + chartHeight - 60})`)
-            .attr("font-size",12)
+            .attr("transform",`translate(${transformX - 60},${margin.top + chartHeight - 80})`)
+            .attr("font-size",15)
             .attr("text-anchor","end")
             .attr("fill","#808080")
             .text("Research shows sustained interest in cat adoptions compared to dogs, which may partly explain the significant increase in cat rescues.")
-            .call(wrap, 140, 12);
+            .call(wrap, 170, 16);
 
         const total2020 = d3.sum(stackData, (d) => d.filter((f) => +f.data.Year === 2020).map((m) => m[1] - m[0]));
 
@@ -212,9 +212,9 @@ const stackedAreaChart = ()  => {
             .attr("y2", margin.top + yScale(total2020) - 10);
 
         svg.select("#yAxisClipPathRect")
-            .attr("width", margin.left)
+            .attr("width", 40)
             .attr("height", chartHeight + 10)
-            .attr("transform", `translate(${-margin.left},-10)`);
+            .attr("transform", `translate(${-40},-10)`);
 
         xAxis
             .call(d3.axisBottom(xScale).ticks(5).tickSizeOuter(0))
@@ -231,7 +231,7 @@ const stackedAreaChart = ()  => {
             .attr("font-weight", 300)
             .attr("fill", "grey")
             .attr("y", 5)
-            .attr("font-size", 12)
+            .attr("font-size", 16)
             .text((d) =>  d);
 
         yAxis
@@ -257,7 +257,7 @@ const stackedAreaChart = ()  => {
             .attr("pointer-events", "none")
             .attr("font-weight", 300)
             .attr("fill", "grey")
-            .attr("font-size", 12)
+            .attr("font-size", 16)
             .attr("x", -5)
             .transition()
             .duration(500)
@@ -447,9 +447,9 @@ const stackedAreaChart = ()  => {
             .attr("visibility","hidden")
             .attr("pointer-events","none")
             .attr("text-anchor","middle")
-            .attr("font-size", 12)
+            .attr("font-size", 15)
             .attr("x", (d) => xScale(d.data.Year))
-            .attr("y",  yScale(0) + 32)
+            .attr("y",  yScale(0) + 35)
             .attr("fill", "#808080")
             .text((d) => `${d[1]} rescues`);
 
@@ -612,7 +612,7 @@ const voronoiHexChart = () => {
         const fontScale = d3
             .scaleLinear()
             .domain(d3.extent(chartData, (d) => d.value))
-            .range([9,  35]);
+            .range([11,  35]);
 
         const nodeGroup = svg
             .selectAll(".voronoiNodeGroup")
