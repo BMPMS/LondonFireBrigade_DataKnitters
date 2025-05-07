@@ -119,6 +119,8 @@ const stackedAreaChart = ()  => {
 
         resetNewsScroller(allNews);
 
+        svg.selectAll(".yearDotRect").attr("width",0).attr("display","none");
+
         const yMax = d3.max(stackData, (d) => d3.max(d, (m) => m[1]));
         const yScale = d3.scaleLinear().domain([0,yMax]).range([chartHeight,0]);
 
@@ -140,12 +142,12 @@ const stackedAreaChart = ()  => {
             yAxis = svg.append("g").attr("class","yAxis");
             title = svg.append("text").attr("class","chartTitle");
             subTitle = svg.append("text").attr("class","chartSubtitle");
-            extraInfo = svg.append("text").attr("class","extraInfo");
+            extraInfo = svg.append("text").attr("class","extraInfo extraInformationItems");
             rescuesCountExtra = svg.append("text").attr("class","rescuesCountExtra");
             rescuesCount = svg.append("text").attr("class","rescuesCount");
-            catInfo = svg.append("text").attr("class","catInfo");
-            catImage = svg.append("image").attr("class","catImage");
-            covidLine = svg.append("line").attr("class","covidLine");
+            catInfo = svg.append("text").attr("class","catInfo extraInformationItems");
+            catImage = svg.append("image").attr("class","catImage extraInformationItems");
+            covidLine = svg.append("line").attr("class","covidLine extraInformationItems");
             svg.append("clipPath").attr("id", "yAxisClipPath")
                 .append("rect").attr("id","yAxisClipPathRect");
         }
@@ -418,9 +420,8 @@ const stackedAreaChart = ()  => {
             .select(".yearGroup")
             .selectAll(".yearDotsGroup")
             .data((d) => {
-                if(stackData.length > 1) return [];
                 const dotData = d;
-                dotData.map((m) => m.fill =  colors[d.key] || colors["Other"])
+                dotData.map((m) => m.fill = colors[d.key] || colors["Other"]);
                 return dotData;
             })
             .join((group) => {
@@ -471,9 +472,9 @@ const stackedAreaChart = ()  => {
             .attr("stroke", "white")
             .attr("r", 0)
             .transition()
-            .delay(transitionTime * 2)
+            .delay(transitionTime * 3)
             .duration(transitionTime/2)
-            .attr("r", (d) => d[1] > 0 ? 3 : 0);
+            .attr("r", (d) => filterResults !== "" &&  d[1] > 0 ? 3 : 0);
 
         const filterAreaByYear = (d) => {
             svg.selectAll(".stackArea").attr("fill","white");
@@ -488,7 +489,7 @@ const stackedAreaChart = ()  => {
         yearGroup.select(".yearDotRect")
             .attr("x", (d) => xScale(d.data.Year) - (xScale(d.data.Year) - xScale(d.data.Year - 1))/2)
             .attr("fill", "transparent")
-            .attr("width", (d) => xScale(d.data.Year) - xScale(d.data.Year - 1))
+            .attr("width", (d) => filterResults === "" ? 0 : xScale(d.data.Year) - xScale(d.data.Year - 1))
             .attr("height", chartHeight)
             .on("mouseover", (event, d) => {
                filterAreaByYear(d)
@@ -507,6 +508,11 @@ const stackedAreaChart = ()  => {
                     filterAreaByYear(d);
                 }
             })
+            .attr("display", "none")
+            .transition()
+            .delay(transitionTime * 3.5)
+            .duration(0)
+            .attr("display","block")
 
 
 
@@ -680,6 +686,7 @@ const voronoiHexChart = () => {
             const customYShifts = {"Fox": -5, "Squirrel": 5};
             return customYShifts[d.data.name] ? midY + customYShifts[d.data.name]: midY;
         }
+
         nodeGroup
             .select(".voronoiLabel")
             .attr("pointer-events", "none")

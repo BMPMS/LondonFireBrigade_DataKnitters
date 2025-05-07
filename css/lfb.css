@@ -47,3 +47,13 @@ body, svg {
     0%   { transform: translateX(0%); }
     100% { transform: translateX(-100%); }
 }
+
+.extraInformationItems {
+    display: block; /* or flex, grid, etc., depending on your layout */
+}
+
+@media (max-width: 799px) {
+    .extraInformationItems {
+        display: none;
+    }
+}
